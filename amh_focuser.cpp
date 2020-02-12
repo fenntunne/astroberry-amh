@@ -90,7 +90,7 @@ const char * IndiAMHFocuser::getDefaultName()
 bool IndiAMHFocuser::Connect()
 {
 	// set device speed
-	myStepper.setSpeed(30); //  # 30 RPM
+	steppers[activeStepper].setSpeed(30); //  # 30 RPM
 
 	IDMessage(getDeviceName(), "Adafruit Motor HAT Focuser connected successfully.");
 	return true;
@@ -116,9 +116,22 @@ bool IndiAMHFocuser::initProperties()
 {
     INDI::Focuser::initProperties();
 
+	addDebugControl();
+
 	// options tab
 	IUFillNumber(&MotorSpeedN[0],"MOTOR_SPEED","RPM","%0.0f",10,250,10,30);
 	IUFillNumberVector(&MotorSpeedNP,MotorSpeedN,1,getDeviceName(),"MOTOR_CONFIG","Focuser Speed",OPTIONS_TAB,IP_RW,0,IPS_OK);
+
+	IUFillSwitch( &StepperModeS[0], "SINGLE", "Single", ISS_ON);
+	IUFillSwitch( &StepperModeS[1], "DOUBLE", "Double", ISS_OFF);
+	IUFillSwitch( &StepperModeS[2], "INTERLEAVE", "Interleave", ISS_OFF);
+	IUFillSwitch( &StepperModeS[3], "MICROSTEP", "Microstep", ISS_OFF);
+	IUFillSwitchVector(&StepperModeSP,StepperModeS,4,getDeviceName(),"STEPPER_MODE","Stepper Mode",OPTIONS_TAB,IP_RW,ISR_1OFMANY,60,IPS_OK);
+
+	IUFillSwitch( &StepperChannelS[0], "CHANNEL_A", "Channel A", ISS_ON);
+	IUFillSwitch( &StepperChannelS[1], "CHANNEL_B", "Channel B", ISS_OFF);
+	IUFillSwitchVector(&StepperChannelSP,StepperChannelS,2,getDeviceName(),"STEPPER_CHANNEL","Stepper Channel",OPTIONS_TAB,IP_RW,ISR_1OFMANY,60,IPS_OK);
+
 
 	IUFillSwitch(&MotorDirS[0],"FORWARD","Normal",ISS_ON);
 	IUFillSwitch(&MotorDirS[1],"REVERSE","Reverse",ISS_OFF);
@@ -157,6 +170,7 @@ bool IndiAMHFocuser::initProperties()
 
 	// set default values
 	dir = FOCUS_OUTWARD;
+	mode = SINGLE;
 
 	return true;
 }
@@ -168,7 +182,7 @@ void IndiAMHFocuser::ISGetProperties (const char *dev)
 
 	INDI::Focuser::ISGetProperties(dev);
 
-    // addDebugControl();
+	addDebugControl();
     return;
 }
 
@@ -185,6 +199,8 @@ bool IndiAMHFocuser::updateProperties()
 	defineSwitch(&FocusParkingSP);
 	defineSwitch(&FocusResetSP);
 	defineSwitch(&MotorDirSP);
+	defineSwitch(&StepperModeSP);
+	defineSwitch(&StepperChannelSP);
 	defineNumber(&MotorSpeedNP);
 	defineNumber(&FocusBacklashNP);
     }
@@ -196,6 +212,8 @@ bool IndiAMHFocuser::updateProperties()
 	deleteProperty(FocusParkingSP.name);
 	deleteProperty(FocusResetSP.name);
 	deleteProperty(MotorDirSP.name);
+	deleteProperty(StepperModeSP.name);
+	deleteProperty(StepperChannelSP.name);
 	deleteProperty(MotorSpeedNP.name);
 	deleteProperty(FocusBacklashNP.name);
     }
@@ -212,7 +230,7 @@ bool IndiAMHFocuser::ISNewNumber (const char *dev, const char *name, double valu
         // handle focus absolute position
         if (!strcmp(name, FocusAbsPosNP.name))
         {
-			int newPos = (int) values[0];
+		int newPos = (int) values[0];
             if ( MoveAbsFocuser(newPos) == IPS_OK )
             {
                IUUpdateNumber(&FocusAbsPosNP,values,names,n);
@@ -246,7 +264,7 @@ bool IndiAMHFocuser::ISNewNumber (const char *dev, const char *name, double valu
             IUUpdateNumber(&MotorSpeedNP,values,names,n);
             MotorSpeedNP.s=IPS_BUSY;
             IDSetNumber(&MotorSpeedNP, NULL);
-            myStepper.setSpeed(MotorSpeedN[0].value); //  # 30 RPM
+            steppers[activeStepper].setSpeed(MotorSpeedN[0].value); //  # 30 RPM
             MotorSpeedNP.s=IPS_OK;
             IDSetNumber(&MotorSpeedNP, "Adafruit Motor HAT Focuser speed set to %d RPM", (int) MotorSpeedN[0].value);
             return true;
@@ -333,6 +351,62 @@ bool IndiAMHFocuser::ISNewSwitch (const char *dev, const char *name, ISState *st
 	    IDSetSwitch(&MotorDirSP, NULL);
 	    return true;
 	}
+	
+        // handle motor channel
+    if(!strcmp(name, StepperChannelSP.name))
+    {
+	    IUUpdateSwitch(&StepperChannelSP, states, names, n);
+		if( StepperChannelS[1].s == ISS_ON)
+			{
+				activeStepper = 1;
+				IDMessage(getDeviceName(), "Active Stepper set to CHANNEL_B.");
+			}
+			else
+			{
+				activeStepper = 0;
+				IDMessage(getDeviceName(), "Active Stepper set to CHANNEL_A.");
+			}
+	    
+	    StepperChannelSP.s = IPS_BUSY;
+	    IDSetSwitch(&StepperChannelSP, NULL);
+	    StepperChannelSP.s = IPS_OK;
+	    IDSetSwitch(&StepperChannelSP, NULL);
+	    return true;
+	}
+	
+	// Handle Mode (Style)
+	if( !strcmp(name, StepperModeSP.name))
+	{
+	    IUUpdateSwitch(&StepperModeSP, states, names, n);
+	    
+	    if( StepperModeS[0].s == ISS_ON)
+	    {
+			mode = SINGLE;
+			IDMessage(getDeviceName(), "Mode set to SINGLE.");
+	    }
+	    if( StepperModeS[1].s == ISS_ON)
+	    {
+			mode = DOUBLE;
+			IDMessage(getDeviceName(), "Mode set to DOUBLE.");
+		}
+	    if( StepperModeS[2].s == ISS_ON)
+		{
+			mode = INTERLEAVE;
+			IDMessage(getDeviceName(), "Mode set to INTERLEAVE.");
+	    }
+	    if( StepperModeS[3].s == ISS_ON)
+	    {
+			mode = MICROSTEP;
+			IDMessage(getDeviceName(), "Mode set to MICROSTEP.");
+		}
+	    
+	    StepperModeSP.s = IPS_BUSY;
+	    IDSetSwitch(&StepperModeSP, NULL);
+	    StepperModeSP.s = IPS_OK;
+	    IDSetSwitch(&StepperModeSP, NULL);
+	    return true;
+		
+	}
 
         // handle focus abort - TODO
 /*
@@ -365,6 +439,8 @@ bool IndiAMHFocuser::saveConfigItems(FILE *fp)
 	IUSaveConfigNumber(fp, &FocusBacklashNP);
 	IUSaveConfigSwitch(fp, &FocusParkingSP);
 	IUSaveConfigSwitch(fp, &MotorDirSP);
+	IUSaveConfigSwitch(fp, &StepperModeSP);
+	IUSaveConfigSwitch(fp, &StepperChannelSP);
 
 	if ( FocusParkingS[0].s == ISS_ON )
 		IUSaveConfigNumber(fp, &FocusAbsPosNP);
@@ -410,12 +486,12 @@ IPState IndiAMHFocuser::MoveAbsFocuser(int targetTicks)
 	if (targetTicks > FocusAbsPosN[0].value)
 	{
 	    dir = FOCUS_OUTWARD;
-	    IDMessage(getDeviceName() , "Adafruit Motor HAT Focuser is moving outward by %d", abs(targetTicks - FocusAbsPosN[0].value));
+	    IDMessage(getDeviceName() , "Adafruit Motor HAT Focuser is moving %s outward by %f", StepperChannelS[activeStepper].name, abs(targetTicks - FocusAbsPosN[0].value));
 	}
 	else
 	{
 	    dir = FOCUS_INWARD;
-	    IDMessage(getDeviceName() , "Adafruit Motor HAT Focuser is moving inward by %d", abs(targetTicks - FocusAbsPosN[0].value));
+	    IDMessage(getDeviceName() , "Adafruit Motor HAT Focuser is moving %s inward by %f", StepperChannelS[activeStepper].name, abs(targetTicks - FocusAbsPosN[0].value));
 	}
 
 	// if direction changed do backlash adjustment - TO DO
@@ -442,19 +518,20 @@ IPState IndiAMHFocuser::MoveAbsFocuser(int targetTicks)
 
 int IndiAMHFocuser::StepperMotor(int steps, FocusDirection direction)
 {
-    int value;
 
+	IDMessage( getDeviceName(),  "activeStepper: %d mode: %d\n", activeStepper, mode);
+ 
 	if(direction == FOCUS_OUTWARD)
 	{
 		if ( MotorDirS[1].s == ISS_ON )
 		{
 			//clockwise out
-			myStepper.step(steps, FORWARD,  DOUBLE);
+			steppers[activeStepper].step(steps, FORWARD,  mode);
 		}
 		else
 		{
 			//clockwise in
-			myStepper.step(steps, BACKWARD,  DOUBLE);
+			steppers[activeStepper].step(steps, BACKWARD,  mode);
 		}
 	}
 	else
@@ -462,12 +539,12 @@ int IndiAMHFocuser::StepperMotor(int steps, FocusDirection direction)
 		if ( MotorDirS[1].s == ISS_ON )
 		{
 			//clockwise in
-			myStepper.step(steps, BACKWARD,  DOUBLE);
+			steppers[activeStepper].step(steps, BACKWARD,  mode);
 		}
 		else
 		{
 			//clockwise out
-			myStepper.step(steps, FORWARD,  DOUBLE);
+			steppers[activeStepper].step(steps, FORWARD,  mode);
 		}
 	}
 

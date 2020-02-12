@@ -26,16 +26,26 @@ class IndiAMHFocuser : public INDI::Focuser
 {
     protected:
     private:
+	ISwitch StepperModeS[4];
+	ISwitchVectorProperty StepperModeSP;
+	
+	ISwitch StepperChannelS[2];
+	ISwitchVectorProperty StepperChannelSP;
+	
         ISwitch FocusResetS[1];
         ISwitchVectorProperty FocusResetSP;
+	
         ISwitch MotorDirS[2];
         ISwitchVectorProperty MotorDirSP;
-        ISwitch FocusParkingS[2];
+        
+	ISwitch FocusParkingS[2];
         ISwitchVectorProperty FocusParkingSP;
-		INumber FocusBacklashN[1];
-		INumberVectorProperty FocusBacklashNP;
-		INumber MotorSpeedN[1];
-		INumberVectorProperty MotorSpeedNP;
+	
+	INumber FocusBacklashN[1];
+	INumberVectorProperty FocusBacklashNP;
+	
+	INumber MotorSpeedN[1];
+	INumberVectorProperty MotorSpeedNP;
     public:
         IndiAMHFocuser();
         virtual ~IndiAMHFocuser();
@@ -52,16 +62,20 @@ class IndiAMHFocuser : public INDI::Focuser
         virtual bool ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n);
         virtual bool saveConfigItems(FILE *fp);
 
-		virtual IPState MoveFocuser(FocusDirection dir, int duration);
-		virtual IPState MoveAbsFocuser(int ticks);
-		virtual IPState MoveRelFocuser(FocusDirection dir, int ticks);
-		virtual int StepperMotor(int steps, FocusDirection dir);
-		virtual bool AbortFocuser();
+	virtual IPState MoveFocuser(FocusDirection dir, int duration);
+	virtual IPState MoveAbsFocuser(int ticks);
+	virtual IPState MoveRelFocuser(FocusDirection dir, int ticks);
+	virtual int StepperMotor(int steps, FocusDirection dir);
+	virtual bool AbortFocuser();
 
-		Adafruit_MotorHAT hat;
-		Adafruit_StepperMotor myStepper = hat.getStepper(1);
+	Adafruit_MotorHAT hat;
+		
+	int activeStepper = 0;
+	Style mode;
+	FocusDirection dir;
+	
+	Adafruit_StepperMotor steppers[2] { hat.getStepper(1), hat.getStepper(2)};
 
-		FocusDirection dir;
 };
 
 #endif
