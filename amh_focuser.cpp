@@ -122,14 +122,14 @@ bool IndiAMHFocuser::initProperties()
 	IUFillNumber(&MotorSpeedN[0],"MOTOR_SPEED","RPM","%0.0f",10,250,10,30);
 	IUFillNumberVector(&MotorSpeedNP,MotorSpeedN,1,getDeviceName(),"MOTOR_CONFIG","Focuser Speed",OPTIONS_TAB,IP_RW,0,IPS_OK);
 
-	IUFillSwitch( &StepperModeS[0], "SINGLE", "Single", ISS_ON);
-	IUFillSwitch( &StepperModeS[1], "DOUBLE", "Double", ISS_OFF);
-	IUFillSwitch( &StepperModeS[2], "INTERLEAVE", "Interleave", ISS_OFF);
-	IUFillSwitch( &StepperModeS[3], "MICROSTEP", "Microstep", ISS_OFF);
-	IUFillSwitchVector(&StepperModeSP,StepperModeS,4,getDeviceName(),"STEPPER_MODE","Stepper Mode",OPTIONS_TAB,IP_RW,ISR_1OFMANY,60,IPS_OK);
+	IUFillSwitch( &StepperStyleS[0], "SINGLE", "Single", ISS_ON);
+	IUFillSwitch( &StepperStyleS[1], "DOUBLE", "Double", ISS_OFF);
+	IUFillSwitch( &StepperStyleS[2], "INTERLEAVE", "Interleave", ISS_OFF);
+	IUFillSwitch( &StepperStyleS[3], "MICROSTEP", "Microstep", ISS_OFF);
+	IUFillSwitchVector(&StepperStyleSP,StepperStyleS,4,getDeviceName(),"STEPPER_STYLE","Stepper Style",OPTIONS_TAB,IP_RW,ISR_1OFMANY,60,IPS_OK);
 
-	IUFillSwitch( &StepperChannelS[0], "CHANNEL_A", "Channel A", ISS_ON);
-	IUFillSwitch( &StepperChannelS[1], "CHANNEL_B", "Channel B", ISS_OFF);
+	IUFillSwitch( &StepperChannelS[0], "STEPPER_A", "Stepper A", ISS_ON);
+	IUFillSwitch( &StepperChannelS[1], "STEPPER_B", "Stepper B", ISS_OFF);
 	IUFillSwitchVector(&StepperChannelSP,StepperChannelS,2,getDeviceName(),"STEPPER_CHANNEL","Stepper Channel",OPTIONS_TAB,IP_RW,ISR_1OFMANY,60,IPS_OK);
 
 
@@ -199,7 +199,7 @@ bool IndiAMHFocuser::updateProperties()
 	defineSwitch(&FocusParkingSP);
 	defineSwitch(&FocusResetSP);
 	defineSwitch(&MotorDirSP);
-	defineSwitch(&StepperModeSP);
+	defineSwitch(&StepperStyleSP);
 	defineSwitch(&StepperChannelSP);
 	defineNumber(&MotorSpeedNP);
 	defineNumber(&FocusBacklashNP);
@@ -212,7 +212,7 @@ bool IndiAMHFocuser::updateProperties()
 	deleteProperty(FocusParkingSP.name);
 	deleteProperty(FocusResetSP.name);
 	deleteProperty(MotorDirSP.name);
-	deleteProperty(StepperModeSP.name);
+	deleteProperty(StepperStyleSP.name);
 	deleteProperty(StepperChannelSP.name);
 	deleteProperty(MotorSpeedNP.name);
 	deleteProperty(FocusBacklashNP.name);
@@ -375,35 +375,35 @@ bool IndiAMHFocuser::ISNewSwitch (const char *dev, const char *name, ISState *st
 	}
 	
 	// Handle Mode (Style)
-	if( !strcmp(name, StepperModeSP.name))
+	if( !strcmp(name, StepperStyleSP.name))
 	{
-	    IUUpdateSwitch(&StepperModeSP, states, names, n);
+	    IUUpdateSwitch(&StepperStyleSP, states, names, n);
 	    
-	    if( StepperModeS[0].s == ISS_ON)
+	    if( StepperStyleS[0].s == ISS_ON)
 	    {
 			mode = SINGLE;
 			IDMessage(getDeviceName(), "Mode set to SINGLE.");
 	    }
-	    if( StepperModeS[1].s == ISS_ON)
+	    if( StepperStyleS[1].s == ISS_ON)
 	    {
 			mode = DOUBLE;
 			IDMessage(getDeviceName(), "Mode set to DOUBLE.");
 		}
-	    if( StepperModeS[2].s == ISS_ON)
+	    if( StepperStyleS[2].s == ISS_ON)
 		{
 			mode = INTERLEAVE;
 			IDMessage(getDeviceName(), "Mode set to INTERLEAVE.");
 	    }
-	    if( StepperModeS[3].s == ISS_ON)
+	    if( StepperStyleS[3].s == ISS_ON)
 	    {
 			mode = MICROSTEP;
 			IDMessage(getDeviceName(), "Mode set to MICROSTEP.");
 		}
 	    
-	    StepperModeSP.s = IPS_BUSY;
-	    IDSetSwitch(&StepperModeSP, NULL);
-	    StepperModeSP.s = IPS_OK;
-	    IDSetSwitch(&StepperModeSP, NULL);
+	    StepperStyleSP.s = IPS_BUSY;
+	    IDSetSwitch(&StepperStyleSP, NULL);
+	    StepperStyleSP.s = IPS_OK;
+	    IDSetSwitch(&StepperStyleSP, NULL);
 	    return true;
 		
 	}
@@ -439,7 +439,7 @@ bool IndiAMHFocuser::saveConfigItems(FILE *fp)
 	IUSaveConfigNumber(fp, &FocusBacklashNP);
 	IUSaveConfigSwitch(fp, &FocusParkingSP);
 	IUSaveConfigSwitch(fp, &MotorDirSP);
-	IUSaveConfigSwitch(fp, &StepperModeSP);
+	IUSaveConfigSwitch(fp, &StepperStyleSP);
 	IUSaveConfigSwitch(fp, &StepperChannelSP);
 
 	if ( FocusParkingS[0].s == ISS_ON )

@@ -26,8 +26,8 @@ class IndiAMHFocuser : public INDI::Focuser
 {
     protected:
     private:
-	ISwitch StepperModeS[4];
-	ISwitchVectorProperty StepperModeSP;
+	ISwitch StepperStyleS[4];
+	ISwitchVectorProperty StepperStyleSP;
 	
 	ISwitch StepperChannelS[2];
 	ISwitchVectorProperty StepperChannelSP;
